@@ -1,3 +1,5 @@
+
+
 var avatarImage = "img/avatar.png";
 var enemyImage = "img/enemy.png";
 
@@ -5,7 +7,9 @@ var CANVAS_WIDTH = 400;
 var CANVAS_HEIGHT = 400;
 var FPS = 60;
 
-var CANVAS = document.getElementById("gameCanvas");
+var CANVAS;
+var CTX;
+
 
 var Mouse = {
 	x: 0,
@@ -14,6 +18,11 @@ var Mouse = {
 
 var xOffset, yOffset;
 function init() {
+
+	CANVAS = document.getElementById("gameCanvas");
+	CTX = CANVAS.getContext("2d");
+	
+
 	Resources.load(["img/avatar.png", "img/enemy.png"]);
 	Resources.onReady(main);
 }
@@ -30,11 +39,12 @@ function main() {
 
 function update() {
 	
+	CANVAS.addEventListener("mousemove", updateMousePos);
 }
 
 function draw() {
-	CANVAS.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-	CANVAS.drawImage(resources.get("img/avatar.png"), 150, 100);
+	CTX.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+	CTX.drawImage(Resources.get("img/avatar.png"), Mouse.x, Mouse.y);
 }
 
 function updateMousePos(mouseEvent) {
@@ -42,3 +52,10 @@ function updateMousePos(mouseEvent) {
 	Mouse.y = mouseEvent.offsetY;
 }
 
+var Game = {
+	init: init,
+	main: main,
+	update: update,
+	draw: draw,
+	updateMousePos: updateMousePos
+};
