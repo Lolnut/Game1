@@ -1,13 +1,14 @@
 "use strict";
 
-var Render = function() {};
+var Render = {
+	
+	Draw: function(canvas, image, x, y) {
+		
+		canvas.clearRect(0, 0, canvas.width, canvas.height);
+		canvas.getContext("2d").drawImage(image, x, y);
+	}
+}
 
-Render.prototype.Draw = function(canvas, image, x, y) {
-    
-    canvas.clearRect(0, 0, canvas.width, canvas.height);
-    canvas.getContext("2d").drawImage(image, x, y);
-    
-};
     
     function drawAvatar() {
     var gameCanvas = document.getElementById("gameCanvas");
