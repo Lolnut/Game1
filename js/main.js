@@ -23,7 +23,7 @@ function init() {
 	CTX = CANVAS.getContext("2d");
 	
 
-	Resources.load(["img/avatar.png", "img/enemy.png"]);
+	Resources.load([avatarImage, enemyImage]);
 	Resources.onReady(main);
 }
 
@@ -44,7 +44,7 @@ function update() {
 
 function draw() {
 	CTX.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-	CTX.drawImage(Resources.get("img/avatar.png"), Mouse.x, Mouse.y);
+	CTX.drawImage(Resources.get(avatarImage), Mouse.x, Mouse.y);
 }
 
 function updateMousePos(mouseEvent) {
