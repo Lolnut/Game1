@@ -11,11 +11,44 @@
         <link rel="stylesheet" href="css/style.css" />
     </head>
     <body>
+
+        <button id="toggleInstruction">Hide Instruction</button>
+        <div class="wrapper">
+            
+            
+            <div id="score"></div>
+        </div>
+
         <div id="gameArea">
+            <div id="game-over-overlay">
+
+                <div id="game-over">
+                    <h1>GAME OVER</h1>
+                    <button id="play-again">Play Again</button>
+                </div>
+            </div>
+
+            <div id="bombs-remaining-1"></div>
+            <div id="bombs-remaining-2"></div>
+            <div id="bombs-remaining-3"></div>
+
+            <div id="instructions">
+                <div>
+                    move with <span class="arrow">arrows</span> or <span class="key">wasd</span>.
+                </div>
+                <div>
+                    press <span class="space">space</span> to clear all asteroids in the field.
+                </div>
+                <div>
+                    avoid the <span class="roids">asteroids</span> to score<br /> points.
+                    see how high you can<br /> score.
+                </div>
+            </div>
+
             <canvas id="gameCanvas"></canvas>
         </div>
         <script src="js/main.js"></script>
-        
         <script>Game.init();</script>
+        
     </body>
 </html>

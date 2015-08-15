@@ -2,6 +2,11 @@
  * Game1 - Client-Side Game in Javascript
  *
  * Simple Asteroid scroller
+
+ @TODO - Add in Asteroid and Player sprites
+ @TODO - Add in bomb effect.
+ @TODO - Add in more enemy types
+ @TODO - Balance Asteroid generation
  ********************************************************************/
 var FPS = 60;
 var requestAnimFrame = (function(){
@@ -38,10 +43,14 @@ var gameTime = 0;
 var isGameOver = false;
 
 var player;
-var asteroids = [];
+var maxSpd = 250;
+var bombs = 3;
 
-var newPos = [0, 0];
-var maxSpd = 1000;
+var asteroids = [];
+var asteroidSpeed = 100;
+
+var score = 0;
+var scoreEl = document.getElementById('score');
 
 var Mouse = {
 	x: 0,
@@ -63,15 +72,23 @@ function init() {
     CANVAS.height = window.innerHeight;
     CTX = CANVAS.getContext("2d");
     
-	//Load our sprites
-	Resources.load(playerImgs);
-	Resources.load(asteroidImgs);
-	Resources.onReady(main);
-	
+	document.getElementById('play-again').addEventListener('click', function() {
+        reset();
+    });
+    document.getElementById('toggleInstruction').addEventListener('click', function() {
+        toggleInstructions();
+    })
+
 	//Create the player instance and assign the avatar
 	player = new Player(new Sprite(playerImgs[0], [0, 0], [29, 33]), [CANVAS.width / 2, CANVAS.height * .75], maxSpd);
 	
-	var lastTime = Date.now();
+    reset();
+	lastTime = Date.now();
+
+    //Load our sprites
+    Resources.load(playerImgs);
+    Resources.load(asteroidImgs);
+    Resources.onReady(main);
 }
 
 function main() {
@@ -89,19 +106,38 @@ function main() {
 function update(dt) {
 	gameTime += dt;
 	
-	player.sprite.update(dt);
+    handleInput(dt);
+	updateEntities(dt);
 	
-	handleInput(dt);
-	
-	if(Math.random() < 1 - Math.pow(.993, gameTime)) {
-        enemies.push({
-            pos: [canvas.width,
-                  Math.random() * (canvas.height - 39)],
-            sprite: new Sprite('img/enemy.png', [0, 78], [80, 39])
+	if(Math.random() < 1 - Math.pow(.993, gameTime) && !isGameOver) {
+        asteroids.push({
+            pos: [Math.random() * (CANVAS.width - 39),
+                  0],
+            sprite: new Sprite('img/enemy.png', [0, 0], [29, 29])
         });
     }
 	
-	checkPlayerBounds();
+	checkCollisions();
+
+    scoreEl.innerHTML = "Score: "+score;
+}
+
+function updateEntities(dt) {
+
+    player.sprite.update(dt);
+
+    for(var i = 0; i < asteroids.length; i++) {
+        asteroids[i].pos[1] += asteroidSpeed * dt;
+        asteroids[i].sprite.update(dt);
+
+        //Remove if offscreen
+        if(asteroids[i].pos[1] + asteroids[i].sprite.size[1] > CANVAS.height) {
+            asteroids.splice(i, 1);
+            i--;
+            if(!isGameOver)
+                score += 1;
+        }
+    }
 }
 
 function render() {
@@ -113,6 +149,7 @@ function render() {
     }
     
     //Render other things
+    renderEntities(asteroids);
 };
 
 function renderEntities(list) {
@@ -128,6 +165,19 @@ function renderEntity(entity) {
     CTX.restore();
 }
 
+function checkCollisions() {
+    checkPlayerBounds();
+
+    for(var i=0; i<asteroids.length;i++) {
+        var pos = asteroids[i].pos;
+        var size = asteroids[i].sprite.size;
+
+        if(boxCollides(pos, size, player.pos, player.sprite.size)) {
+            gameOver();
+        }
+    }
+}
+
 function handleInput(dt) {
     if(input.isDown('DOWN') || input.isDown('s')) {
         player.pos[1] += player.maxSpeed * dt;
@@ -139,6 +189,40 @@ function handleInput(dt) {
     } else if(input.isDown('RIGHT') || input.isDown('d')) {
         player.pos[0] += player.maxSpeed * dt;
     }
+
+    if(input.keyUp('SPACE') && bombs > 0 && !isGameOver) {
+        var ind = document.getElementById('bombs-remaining-'+bombs);
+        ind.style.background = '#2C2C2C';
+        bombs--;
+        asteroids = [];
+    }
+}
+
+function gameOver() {
+    document.getElementById('game-over').style.display = 'block';
+    document.getElementById('game-over-overlay').style.display = 'block';
+    isGameOver = true;
+    //Submit Score...etc
+}
+
+function reset() {
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('game-over-overlay').style.display = 'none';
+    isGameOver = false;
+    gameTime = 0;
+    bombs = 3;
+    for(var i=1;i<4;i++) {
+        document.getElementById('bombs-remaining-'+i).style.background = '#00FFFF';
+    }
+
+    asteroids = [];
+
+    player.pos = [CANVAS.width / 2, CANVAS.height * .75];
+}
+
+function toggleInstructions() {
+    document.getElementById('instructions').style.display = document.getElementById('instructions').style.display === 'none' ? 'block' : 'none';
+    document.getElementById('toggleInstruction').innerHTML = document.getElementById('instructions').style.display === 'none' ? 'Show Instruction' : 'Hide Instruction';
 }
 
 /**************************************
@@ -186,6 +270,8 @@ var Game = {
 //Input Utility
 (function() {
     var pressedKeys = {};
+    var registerOnce;
+    var keyUp;
 
     function setKey(event, status) {
         var code = event.keyCode;
@@ -208,6 +294,10 @@ var Game = {
         }
 
         pressedKeys[key] = status;
+        if(status === false) {
+            registerOnce = true;
+            keyUp = key;
+        }
     }
 
     document.addEventListener('keydown', function(e) {
@@ -225,6 +315,16 @@ var Game = {
     window.input = {
         isDown: function(key) {
             return pressedKeys[key.toUpperCase()];
+        },
+
+        keyUp: function(key) {
+            if(!pressedKeys[key.toUpperCase()] && registerOnce) {
+                if(key.toUpperCase() === keyUp) {
+                    keyUp = "";
+                    registerOnce = false;
+                    return true;
+                }
+            }
         }
     };
 })();
@@ -343,7 +443,3 @@ var Game = {
     this.maxSpeed = maxSpeed;
     this.speed = [0,0];
  }
- 
-/*
-@TODO -
-*/
