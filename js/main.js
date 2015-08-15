@@ -3,7 +3,7 @@
  *
  * Simple Asteroid scroller
  ********************************************************************/
-
+var FPS = 60;
 var requestAnimFrame = (function(){
     return window.requestAnimationFrame       ||
         window.webkitRequestAnimationFrame ||
@@ -11,7 +11,7 @@ var requestAnimFrame = (function(){
         window.oRequestAnimationFrame      ||
         window.msRequestAnimationFrame     ||
         function(callback){
-            window.setTimeout(callback, 1000 / 60);
+            window.setTimeout(callback, 1000 / FPS);
         };
 })();
 
@@ -19,24 +19,29 @@ var requestAnimFrame = (function(){
 var playerImgs = ["img/avatar.png"];
 var asteroidImgs = ["img/enemy.png"];
 
-var width = window.innerWidth
-            || document.documentElement.clientWidth
-            || document.body.clientWidth;
-var height = window.innerHeight
-            || document.documentElement.clientHeight
-            || document.body.clientHeight;
-var FPS = 60;
 
+
+/************************************************
+ *
+ * Game Area and Canvas Globals
+ *
+ ***********************************************/
 var CANVAS;
 var CTX;
 
+/***********************************************
+ *
+ * Game State Variables
+ *
+ **********************************************/
 var gameTime = 0;
+var isGameOver = false;
 
 var player;
-var newPos = [0, 0];
-var maxSpd = 200;
+var asteroids = [];
 
-var KEYCODE_W = 87, KEYCODE_A = 65, KEYCODE_S = 83, KEYCODE_D = 68;
+var newPos = [0, 0];
+var maxSpd = 1000;
 
 var Mouse = {
 	x: 0,
@@ -50,23 +55,21 @@ var xOffset, yOffset;
  * Initialize necessary game data
  *
  ********************************************************************/
- var lastTime;
+var lastTime;
 function init() {
     
-    //Get our canvas and the context
-	CANVAS = document.createElement('canvas');
-	document.body.appendChild(CANVAS);
-	CTX = CANVAS.getContext("2d");
-	CTX.canvas.width = width;
-	CTX.canvas.height = height;
-	
+    CANVAS = document.getElementById('gameCanvas');
+    CANVAS.width = window.innerWidth;
+    CANVAS.height = window.innerHeight;
+    CTX = CANVAS.getContext("2d");
+    
 	//Load our sprites
 	Resources.load(playerImgs);
 	Resources.load(asteroidImgs);
 	Resources.onReady(main);
 	
 	//Create the player instance and assign the avatar
-	player = new Player(new Sprite(playerImgs[0], [0, 0], [29, 33]), [0, 0], maxSpd);
+	player = new Player(new Sprite(playerImgs[0], [0, 0], [29, 33]), [CANVAS.width / 2, CANVAS.height * .75], maxSpd);
 	
 	var lastTime = Date.now();
 }
@@ -77,7 +80,7 @@ function main() {
 	var dt = (now - lastTime) / 1000.0;
 	
 	update(dt);
-	draw();
+	render();
 	
 	lastTime = now;
 	requestAnimFrame(main);
@@ -86,17 +89,43 @@ function main() {
 function update(dt) {
 	gameTime += dt;
 	
+	player.sprite.update(dt);
 	
 	handleInput(dt);
 	
-	
+	if(Math.random() < 1 - Math.pow(.993, gameTime)) {
+        enemies.push({
+            pos: [canvas.width,
+                  Math.random() * (canvas.height - 39)],
+            sprite: new Sprite('img/enemy.png', [0, 78], [80, 39])
+        });
+    }
 	
 	checkPlayerBounds();
 }
 
-function draw() {
-	CTX.clearRect(0, 0, CANVAS.width, CANVAS.height);
-	player.draw();
+function render() {
+    
+    CTX.clearRect(0, 0, CANVAS.width, CANVAS.height);
+    
+    if(!isGameOver) {
+        renderEntity(player);
+    }
+    
+    //Render other things
+};
+
+function renderEntities(list) {
+    for(var i = 0; i < list.length; i++) {
+        renderEntity(list[i]);
+    }
+}
+
+function renderEntity(entity) {
+    CTX.save();
+    CTX.translate(entity.pos[0], entity.pos[1]);
+    entity.sprite.render(CTX);
+    CTX.restore();
 }
 
 function handleInput(dt) {
@@ -146,10 +175,7 @@ function checkPlayerBounds() {
 }
 
 var Game = {
-	init: init,
-	main: main,
-	update: update,
-	draw: draw
+	init: init
 };
 
 /********************************************
@@ -157,15 +183,6 @@ var Game = {
  * Utilities
  *
  *******************************************/
-//Renderer
-var Renderer = {
-    
-    drawImage: function(image, x, y) {
-        
-        CTX.drawImage(image, x, y);
-    }
-};
-
 //Input Utility
 (function() {
     var pressedKeys = {};
@@ -279,10 +296,45 @@ var Renderer = {
  *
  *******************************************/
  
- function Sprite(url, pos, size) {
+ function Sprite(url, pos, size, speed, frames, dir, once) {
     this.url = url;
     this.pos = pos;
     this.size = size;
+    this.speed = typeof speed === 'number' ? speed : 0;
+    this.frames = frames;
+    this._index = 0;
+    this.dir = dir || 'horizontal';
+    this.once = once;
+    
+    this.update = function(dt) {
+        this._index += this.speed * dt;
+    };
+    
+    this.render = function(ctx) {
+        var frame;
+        
+        if(this.speed > 0) {
+            var max = this.frames.length;
+            var idx = Math.floor(this._index);
+            
+            frame = this.frames[idx % max];
+            if(this.once && idx >= max) {
+                this.done = true;
+                return;
+            }
+        } else {
+            frame = 0;
+        }
+        
+        var x = this.pos[0];
+        var y = this.pos[1];
+        
+        ctx.drawImage(Resources.get(this.url),
+                                    x, y,
+                                    this.size[0], this.size[1],
+                                    0, 0,
+                                    this.size[0], this.size[1]);
+    };
  }
  
  function Player(sprite, pos, maxSpeed) {
@@ -290,16 +342,6 @@ var Renderer = {
     this.pos = pos || [0, 0];
     this.maxSpeed = maxSpeed;
     this.speed = [0,0];
-    
-    this.draw = function() {
-
-        Renderer.drawImage(Resources.get(this.sprite.url), this.pos[0], this.pos[1]);
-    };
-    
-    this.update = function(pos) {
-        this.pos[0] += pos[0];
-        this.pos[1] += pos[1];
-    };
  }
  
 /*
