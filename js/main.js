@@ -5,8 +5,8 @@
 
  @TODO - Add in Asteroid and Player sprites
  @TODO - Add in bomb effect.
- @TODO - Add in more enemy types
  @TODO - Balance Asteroid generation
+ @TODO - Fix pixel collision detection / Find better collision method.
  ********************************************************************/
 var FPS = 60;
 var requestAnimFrame = (function(){
@@ -21,7 +21,7 @@ var requestAnimFrame = (function(){
 })();
 
 
-var playerImgs = ["img/avatar.png"];
+var playerImgs = ["img/Ship.png"];
 var asteroidImgs = ["img/enemy.png"];
 
 
@@ -48,6 +48,8 @@ var bombs = 3;
 
 var asteroids = [];
 var asteroidSpeed = 100;
+
+var bombsArr = [];
 
 var score = 0;
 var scoreEl = document.getElementById('score');
@@ -78,9 +80,11 @@ function init() {
     document.getElementById('toggleInstruction').addEventListener('click', function() {
         toggleInstructions();
     })
+    
+    document.addEventListener('resize', resize, false);
 
 	//Create the player instance and assign the avatar
-	player = new Player(new Sprite(playerImgs[0], [0, 0], [29, 33]), [CANVAS.width / 2, CANVAS.height * .75], maxSpd);
+	player = new Player(new Sprite(playerImgs[0], [0, 0], [46, 46]), [CANVAS.width / 2, CANVAS.height * .75], maxSpd);
 	
     reset();
 	lastTime = Date.now();
@@ -109,6 +113,7 @@ function update(dt) {
     handleInput(dt);
 	updateEntities(dt);
 	
+	//Update to use animation for asteroid
 	if(Math.random() < 1 - Math.pow(.993, gameTime) && !isGameOver) {
         asteroids.push({
             pos: [Math.random() * (CANVAS.width - 39),
@@ -125,6 +130,16 @@ function update(dt) {
 function updateEntities(dt) {
 
     player.sprite.update(dt);
+
+    for(var i = 0; i < bombsArr.length; i++) {
+        if(bombsArr[i] == null)
+            continue;
+        
+        if(bombsArr[i].sprite.script()) {
+            bombsArr.splice(i, 1);
+            i--;
+        }
+    }
 
     for(var i = 0; i < asteroids.length; i++) {
         asteroids[i].pos[1] += asteroidSpeed * dt;
@@ -150,6 +165,7 @@ function render() {
     
     //Render other things
     renderEntities(asteroids);
+    renderEntities(bombsArr);
 };
 
 function renderEntities(list) {
@@ -174,6 +190,17 @@ function checkCollisions() {
 
         if(boxCollides(pos, size, player.pos, player.sprite.size)) {
             gameOver();
+            asteroids.splice(i, 1);
+            i--;
+        }
+        
+        for(var j=0; j<bombsArr.length;j++) {
+            
+            if(boxCollides(pos, size, bombsArr[j].pos, [bombsArr[j].sprite.d, bombsArr[j].sprite.d])) {
+                asteroids.splice(i, 1);
+                i--;
+            }
+            break;
         }
     }
 }
@@ -193,8 +220,12 @@ function handleInput(dt) {
     if(input.keyUp('SPACE') && bombs > 0 && !isGameOver) {
         var ind = document.getElementById('bombs-remaining-'+bombs);
         ind.style.background = '#2C2C2C';
+        bombsArr.push({
+            pos: [player.pos[0], player.pos[1]],
+            
+            sprite: new Wave(player.sprite.size[0] / 2, player.sprite.size[1] / 2, 1, 3)
+        });
         bombs--;
-        asteroids = [];
     }
 }
 
@@ -210,6 +241,7 @@ function reset() {
     document.getElementById('game-over-overlay').style.display = 'none';
     isGameOver = false;
     gameTime = 0;
+    score = 0;
     bombs = 3;
     for(var i=1;i<4;i++) {
         document.getElementById('bombs-remaining-'+i).style.background = '#00FFFF';
@@ -218,6 +250,11 @@ function reset() {
     asteroids = [];
 
     player.pos = [CANVAS.width / 2, CANVAS.height * .75];
+}
+
+function resize() {
+    CANVAS.width = window.innerWidth;
+    CANVAS.height = window.innerHeight;
 }
 
 function toggleInstructions() {
@@ -240,6 +277,63 @@ function boxCollides(pos, size, pos2, size2) {
                     pos[0] + size[0], pos[1] + size[1],
                     pos2[0], pos2[1],
                     pos2[0] + size2[0], pos2[1] + size2[1]);
+}
+
+//TODO Fix/Test the canvas cross-origin tainted with http:// instead of file://
+function pixelCollision(ctx, ent1, ent2, isCentered) {
+    
+    var x = ent1.pos[0],
+        y = ent1.pos[1],
+        x2 = ent2.pos[0],
+        y2 = ent2.pos[1];
+        
+    x = Math.round(x);
+    y = Math.round(y);
+    x2 = Math.round(x2);
+    y2 = Math.round(y2);
+    
+    var imgDat1 = ctx.getImageData(ent1.pos[0], ent1.pos[1], ent1.sprite.size[0], ent1.sprite.size[1]),
+        imgDat2 = ctx.getImageData(ent2.pos[0], ent2.pos[1], ent2.sprite.size[0], ent2.sprite.size[1]);
+    
+    var w = imgDat1.width,
+        h = imgDat1.height,
+        w2 = imgDat2.width,
+        h2 = imgDat2.height;
+        
+    if(isCentered) {
+        x -= (w/2 + 0.5) << 0;
+        y -= (y/2 + 0.5) << 0;
+        x2 -= (x2/2 + 0.5) << 0;
+        y2 -= (y2/2 + 0.5) << 0;
+    }
+    
+    var xMin = Math.min(x, x2),
+        yMin = Math.min(y, y2),
+        xMax = Math.max(x, x2),
+        yMax = Math.max(y, y2);
+        
+    if( xMin >= xMax || yMin >= yMax) {
+        return false;
+    }
+    
+    var xDiff = xMax - xMin,
+        yDiff = yMax - yMin;
+        
+    var pixels = imgDat1.data,
+        pixels2 = imgDat2.data;
+    
+    for(var pixelX = xMin; pixelX < xMax; pixelX++) {
+        for(var pixelY = yMin; pixelY < yMax; pixelY++) {
+            if(
+                (pixels[((pixelX - x) + (pixelY - y) *w) * 4 + 3] !== 0)
+            &&
+                (pixels2[((pixelX - x2) + (pixelY - y2) * w) * 4 + 3] !== 0)
+            ) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 //Keep the player within the bounds of the level
@@ -351,7 +445,10 @@ var Game = {
 			return resourceCache[url];
 		} else {
 			var img = new Image();
+			
 			img.onload = function() {
+			    img.crossOrigin = "Anonymous";
+			    
 				resourceCache[url] = img;
 				
 				if(isReady()) {
@@ -360,6 +457,7 @@ var Game = {
 			};
 			resourceCache[url] = false;
 			img.src = url;
+			
 		}
 	}
 
@@ -442,4 +540,37 @@ var Game = {
     this.pos = pos || [0, 0];
     this.maxSpeed = maxSpeed;
     this.speed = [0,0];
+ }
+ "use strict"
+ function Wave(xx, yy, dd, ee) {
+    this.OUTLINE = "#FFFFFF";
+    this.WEIGHT = 2.0;
+    this.LIMIT = 1.3;
+    
+    this.pos = [0, 0];
+    
+    this.pos[0] = xx;
+    this.pos[1] = yy;
+    this.d = dd;
+    this.e = ee;
+    
+    this.waveUpdate = function() {
+        this.d += this.e;
+    };
+    
+    this.render = function(ctx) {
+        ctx.beginPath();
+        ctx.strokeStyle = this.OUTLINE;
+        ctx.ellipse(this.pos[0], this.pos[1], this.d, this.d, 0, 0, 2 * Math.PI, false);
+        ctx.stroke();
+    };
+    
+    this.gotTooBig = function() {
+        return this.d > CANVAS.width*this.LIMIT;
+    };
+    
+    this.script = function() {
+        this.waveUpdate();
+        return this.gotTooBig();
+    };
  }
