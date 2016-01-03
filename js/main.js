@@ -4,8 +4,6 @@
  * Simple Asteroid scroller
 
  @TODO - Add in Asteroid and Player sprites
- @TODO - Add in bomb effect.
- @TODO - Balance Asteroid generation
  @TODO - Fix pixel collision detection / Find better collision method.
  ********************************************************************/
 var FPS = 60;
@@ -51,6 +49,8 @@ var asteroidSpeed = 100;
 
 var bombsArr = [];
 
+var quad;
+
 var score = 0;
 var scoreEl = document.getElementById('score');
 
@@ -89,6 +89,8 @@ function init() {
     reset();
 	lastTime = Date.now();
 
+    quad = new QuadTree(0, new Rectangle(0, 0, CANVAS.width, CANVAS.height));
+
     //Load our sprites
     Resources.load(playerImgs);
     Resources.load(asteroidImgs);
@@ -121,6 +123,9 @@ function update(dt) {
             sprite: new Sprite('img/enemy.png', [0, 0], [29, 29])
         });
     }
+	
+	quad.clear()
+	quad.insert()
 	
 	checkCollisions();
 
@@ -223,9 +228,10 @@ function handleInput(dt) {
         bombsArr.push({
             pos: [player.pos[0], player.pos[1]],
             
-            sprite: new Wave(player.sprite.size[0] / 2, player.sprite.size[1] / 2, 1, 3)
+            sprite: new Wave(player.sprite.size[0] / 2, player.sprite.size[1] / 2, 1, 30)
         });
         bombs--;
+        gameTime = 0;
     }
 }
 

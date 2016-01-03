@@ -1,0 +1,15 @@
+int IntToBin(float data)
+{
+    byte[] result;
+    byte r;
+    
+    r = data % 2;       //Get if this bit is 0 or 1
+    data = data - r;    //Subtract our remainder to get an even number
+    data = data / 2;    //Divide our data by 2 to get our next input
+    if(data != 1)       //If our data = 1 after we divided it, it means we divided 2 by 2
+    {
+        IntToBin(data); //Recursive function call
+    }
+        
+    
+}
